@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Joy-Con / Ring-Con WebHID</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #12141a;
+        --panel: #1b1f28;
+        --line: #2c3342;
+        --text: #e8edf5;
+        --muted: #8b95a8;
+        --accent: #e60012;
+        --ok: #3dd68c;
+        --warn: #f5c542;
+        --btn: #2a3140;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font: 14px/1.5 "Segoe UI", "Noto Sans SC", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 650;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      button,
+      label.chk {
+        background: var(--btn);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: var(--accent);
+        border-color: #ff3b4a;
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      label.chk {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        user-select: none;
+      }
+
+      main {
+        display: grid;
+        gap: 16px;
+        padding: 16px 20px 24px;
+      }
+
+      .pads {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      @media (max-width: 980px) {
+        .pads {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      section,
+      article.card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+        min-width: 0;
+      }
+
+      article.card:not(.empty) .card-head button {
+        display: none;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .card-head h2 {
+        margin: 0;
+      }
+
+      .status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .pill {
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: #10131a;
+        border: 1px solid var(--line);
+        font-size: 12px;
+      }
+
+      .pill.ok {
+        color: var(--ok);
+        border-color: #1f6b46;
+      }
+
+      .pill.warn {
+        color: var(--warn);
+      }
+
+      .meters {
+        display: grid;
+        gap: 10px;
+      }
+
+      .meter label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .bar {
+        height: 10px;
+        background: #10131a;
+        border-radius: 99px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .bar > i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+      }
+
+      .flex-track {
+        height: 18px;
+        background: linear-gradient(90deg, #3b82f6, #334155 50%, var(--accent));
+        border-radius: 99px;
+        position: relative;
+      }
+
+      .flex-track::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #fff8;
+      }
+
+      .flex-knob {
+        position: absolute;
+        top: -4px;
+        width: 10px;
+        height: 26px;
+        margin-left: -5px;
+        border-radius: 4px;
+        background: #fff;
+        left: 50%;
+      }
+
+      .viz {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 16px;
+        align-items: center;
+        margin: 16px 0;
+      }
+
+      canvas {
+        width: 140px;
+        height: 140px;
+        background: #10131a;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+      }
+
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .key {
+        min-width: 52px;
+        text-align: center;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: #10131a;
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      .key.on {
+        color: #fff;
+        background: var(--accent);
+        border-color: #ff3b4a;
+      }
+
+      #log {
+        height: 220px;
+        overflow: auto;
+        font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        background: #10131a;
+        border-radius: 8px;
+        padding: 10px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .num {
+        background: #10131a;
+        border-radius: 8px;
+        padding: 8px;
+      }
+
+      .num b {
+        display: block;
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Joy-Con / Ring-Con WebHID 测试</h1>
+        <div class="hint">Chrome 一次只能选一个 HID 设备。「连接双手柄」会连续弹出左柄、右柄两次选择框。</div>
+      </div>
+      <div class="actions">
+        <label class="chk">
+          <input id="want-ringcon" type="checkbox" checked />
+          初始化 Ring-Con
+        </label>
+        <button id="reconnect" type="button">重连已授权</button>
+        <button id="connect-l" type="button">连接左柄</button>
+        <button id="connect-r" type="button">连接右柄</button>
+        <button id="connect-both" class="primary" type="button">连接双手柄</button>
+        <button id="disconnect" type="button" disabled>断开</button>
+      </div>
+    </header>
+    <main>
+      <div class="pads">
+        <article class="card empty" data-side="L">
+          <div class="card-head">
+            <h2>Joy-Con (L)</h2>
+            <button type="button" data-connect="L">连接</button>
+          </div>
+          <div class="status" data-el="status"><span class="pill warn">未连接</span></div>
+          <div class="live">
+            <div class="viz">
+              <canvas data-el="pad" width="140" height="140"></canvas>
+              <div class="meters">
+                <div class="meter">
+                  <label><span>|ω| 陀螺仪</span><span data-el="gyro-mag">0 °/s</span></label>
+                  <div class="bar"><i data-el="gyro-bar"></i></div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="num"><b>gx</b><span data-el="gx">—</span></div>
+              <div class="num"><b>gy</b><span data-el="gy">—</span></div>
+              <div class="num"><b>gz</b><span data-el="gz">—</span></div>
+              <div class="num"><b>ax</b><span data-el="ax">—</span></div>
+              <div class="num"><b>ay</b><span data-el="ay">—</span></div>
+              <div class="num"><b>az</b><span data-el="az">—</span></div>
+            </div>
+            <h2 style="margin-top: 16px">按键</h2>
+            <div class="buttons" data-el="keys"></div>
+          </div>
+        </article>
+        <article class="card empty" data-side="R">
+          <div class="card-head">
+            <h2>Joy-Con (R)</h2>
+            <button type="button" data-connect="R">连接</button>
+          </div>
+          <div class="status" data-el="status"><span class="pill warn">未连接</span></div>
+          <div class="live">
+            <div class="viz">
+              <canvas data-el="pad" width="140" height="140"></canvas>
+              <div class="meters">
+                <div class="meter">
+                  <label><span>Ring-Con flex</span><span data-el="flex-label">—</span></label>
+                  <div class="flex-track"><i data-el="flex-knob" class="flex-knob"></i></div>
+                </div>
+                <div class="meter">
+                  <label><span>|ω| 陀螺仪</span><span data-el="gyro-mag">0 °/s</span></label>
+                  <div class="bar"><i data-el="gyro-bar"></i></div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="num"><b>gx</b><span data-el="gx">—</span></div>
+              <div class="num"><b>gy</b><span data-el="gy">—</span></div>
+              <div class="num"><b>gz</b><span data-el="gz">—</span></div>
+              <div class="num"><b>ax</b><span data-el="ax">—</span></div>
+              <div class="num"><b>ay</b><span data-el="ay">—</span></div>
+              <div class="num"><b>az</b><span data-el="az">—</span></div>
+            </div>
+            <h2 style="margin-top: 16px">按键</h2>
+            <div class="buttons" data-el="keys"></div>
+          </div>
+        </article>
+      </div>
+      <section>
+        <h2>日志</h2>
+        <div id="log"></div>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
